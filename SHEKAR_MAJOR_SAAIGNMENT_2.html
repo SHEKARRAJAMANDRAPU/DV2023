@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE-edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="https://d3js.org/topojson.v3.min.js"></script>
+    <title>MASSACHUSETS MAP</title>
+    <style>
+        #custom-tooltip {
+            position: absolute;
+            opacity: 0;
+            top: 0;
+            left: 0;
+            width: auto;
+            padding: 10px;
+            background: white;
+            font-family: sans-serif;
+            font-size: medium;
+            border-radius: 2px;
+            line-height: 1;
+        }
+
+        path {
+            stroke-width: .5px;
+            stroke: black;
+        }
+
+        path:hover {
+            opacity: .6;
+            stroke: black;
+            stroke-width: 4px;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .map svg {
+            display: block;
+            margin: 0 auto;
+            max-width: 100%;
+        }
+
+        .title {
+            text-align: center;
+            font-size: 24px;
+            margin-top: 20px;
+        }
+
+        .name {
+            text-align: center;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+<body>
+<div class="title">MAJOR ASSIGNMENT-2</div>
+<div class="name">SHEKAR RAJAMANDRAPU</div>
+<div id="custom-tooltip"></div>
+<div class="container">
+    <div class="figure1"></div>
+    <div class="figure2"></div>
+    <div class="figure3"></div>
+</div>
+
+<script>
+    /*------------------- Window setting --------------------*/
+    const windowDimensions = {
+        width: window.innerWidth,
+        height: window.innerHeight
+    };
+
+    const svgWidth = windowDimensions.width / 2;
+    const svgHeight = windowDimensions.width / 3;
+
+    // Define the map projections
+    const mapProjections = [
+        d3.geoAzimuthalEqualArea(),
+        d3.geoAlbersUsa(),
+        d3.geoAlbers(),
+        d3.geoMercator(),
+        d3.geoNaturalEarth1(),
+        d3.geoEqualEarth(),
+        d3.geoConicEqualArea(),
+        d3.geoEquirectangular(),
+        d3.geoOrthographic()
+    ];
+
+    // Load the data files
+    const maCountiesData = "towns.topojson";
+    const giniIndexData = "gini_index.csv";
+
+    // Sample county data with FIPS codes
+    const counties = [
+        {
+            "county": "Barnstable County",
+            "fips_stco": 25001
+        },
+        {
+            "county": "Berkshire County",
+            "fips_stco": 25003
+        },
+        {
+            "county": "Bristol County",
+            "fips_stco": 25005
+        },
+        {
+            "county": "Dukes County",
+            "fips_stco": 25007
+        },
+        {
+            "county": "Essex County",
+            "fips_stco": 25009
+        },
+        {
+            "county": "Franklin County",
+            "fips_stco": 25011
+        },
+        {
+            "county": "Hampden County",
+            "fips_stco": 25013
+        },
+        {
+            "county": "Hampshire County",
+            "fips_stco": 25015
+        },
+        {
+            "county": "Middlesex County",
+            "fips_stco": 25017
+        },
+        {
+            "county": "Nantucket County",
+            "fips_stco": 25019
+        },
+        {
+            "county": "Norfolk County",
+            "fips_stco": 25021
+        },
+        {
+            "county": "Plymouth County",
+            "fips_stco": 25023
+        },
+        {
+            "county": "Suffolk County",
+            "fips_stco": 25025
+        },
+        {
+            "county": "Worcester County",
+            "fips_stco": 25027
+        }
+    ];
+
+    Promise.all([
+        d3.json(maCountiesData),
+        d3.csv(giniIndexData)
+    ]).then(data => {
+        const topologyData = data[0];
+
+        // Generate Map 1
+        createMap(topologyData, ".figure1", svgWidth, svgHeight, ["#d73027", "#fc8d59", "#fee090", "#e0f3f8", "#91bfdb", "#4575b4"]);
+
+        // Generate Map 2
+        createMap(topologyData, ".figure2", svgWidth, svgHeight, ["#9e0142", "#d53e4f", "#f46d43", "#fdae61", "#fee08b", "#e6f598"]);
+
+        // Generate Map 3 with county data
+        createMapWithCountyData(topologyData, ".figure3", svgWidth, svgHeight, counties, d3.schemeCategory10);
+    });
+
+    // Function to generate Map 1
+    function createMap(topoData, containerName, width, height, colors) {
+        const svg = d3.select(containerName).append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        const geoJsonData = topojson.feature(topoData, topoData.objects.ma);
+
+        const geoPathGenerator = d3.geoPath()
+            .projection(mapProjections[3].fitSize([width, height], geoJsonData));
+
+        const colorInterpolator = d3.interpolateRgbBasis(colors);
+        const linearScale = d3.scaleLinear()
+            .domain(d3.extent(geoJsonData.features, (d) => d.properties.POP1980));
+
+        const tooltip = d3.select("#custom-tooltip");
+
+        svg.selectAll("path")
+            .data(geoJsonData.features)
+            .enter()
+            .append("path")
+            .attr("d", d => geoPathGenerator(d))
+            .attr("fill", d => colorInterpolator(linearScale(d.properties.POP1980)))
+            .on("mouseenter", (d) => {
+                tooltip.transition()
+                    .duration(200)
+                    .style("opacity", .9);
+                tooltip.html(d.properties.TOWN)
+                    .style("left", (d3.event.pageX + 10) + "px")
+                    .style("top", (d3.event.pageY - 20) + "px");
+            })
+            .on("mousemove", (d) => {
+                tooltip.html(d.properties.TOWN)
+                    .style("left", (d3.event.pageX + 10) + "px")
+                    .style("top", (d3.event.pageY - 20) + "px");
+            })
+            .on("mouseout", () => {
+                tooltip.transition()
+                    .duration(400)
+                    .style("opacity", 0);
+            });
+    }
+
+    // Function to generate Map 3 with county data
+    function createMapWithCountyData(topoData, containerName, width, height, countyData, colors) {
+        const svg = d3.select(containerName).append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        const geoJsonData = topojson.feature(topoData, topoData.objects.ma);
+
+        const colorScale = d3.scaleOrdinal(colors);
+
+        const tooltip = d3.select("#custom-tooltip");
+
+        const geoPathGenerator = d3.geoPath()
+            .projection(mapProjections[3].fitSize([width, height], geoJsonData));
+
+        const countyMap = new Map();
+        countyData.forEach(county => {
+            countyMap.set(county.fips_stco, county.county);
+        });
+
+        svg.selectAll("path")
+            .data(geoJsonData.features)
+            .enter()
+            .append("path")
+            .attr("d", d => geoPathGenerator(d))
+            .attr("fill", d => {
+                const fipsStco = d.properties.FIPS_STCO;
+                const countyName = countyMap.get(fipsStco);
+                return colorScale(countyName || "Unknown County");
+            })
+            .on("mouseenter", (d) => {
+                tooltip.transition()
+                    .duration(200)
+                    .style("opacity", .9);
+                const fipsStco = d.properties.FIPS_STCO;
+                const countyName = countyMap.get(fipsStco);
+                tooltip.html(countyName || "Unknown County")
+                    .style("left", (d3.event.pageX + 10) + "px")
+                    .style("top", (d3.event.pageY - 20) + "px");
+            })
+            .on("mousemove", (d) => {
+                const fipsStco = d.properties.FIPS_STCO;
+                const countyName = countyMap.get(fipsStco);
+                tooltip.html(countyName || "Unknown County")
+                    .style("left", (d3.event.pageX + 10) + "px")
+                    .style("top", (d3.event.pageY - 20) + "px");
+            })
+            .on("mouseout", () => {
+                tooltip.transition()
+                    .duration(400)
+                    .style("opacity", 0);
+            });
+    }
+</script>
+</body>
+
+</html>
